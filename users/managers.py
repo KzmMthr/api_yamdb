@@ -13,9 +13,11 @@ class CustomUserManager(BaseUserManager):
                                          'ABCDEFGHJKLMNPQRSTUVWXYZ'
                                          '23456789')
         user = self.model(username=username, email=email, **extra_fields)
-        if password is None:
-            password = self.make_random_password()
         user.set_password(password)
+        confirmation_code = get_random_string(10, 'abcdefghjkmnpqrstuvwxyz'
+                                                  'ABCDEFGHJKLMNPQRSTUVWXYZ'
+                                                  '23456789')
+        user.confirmation_code = confirmation_code
         if 'role' not in extra_fields:
             user.role = 'user'
         user.save(using=self._db)
@@ -25,6 +27,8 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('is_admin', True)
+        extra_fields.setdefault('is_moderator', True)
         extra_fields.setdefault('role', 'admin')
 
         if extra_fields.get('is_staff') is not True:

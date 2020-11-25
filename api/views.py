@@ -2,10 +2,11 @@ from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status, generics
-from rest_framework.decorators import api_view
+from rest_framework import status, generics, mixins
+from rest_framework.decorators import api_view, action
 from rest_framework.generics import RetrieveUpdateAPIView
 from django.core.mail import send_mail
+from django.utils.crypto import get_random_string
 from . import permissions
 
 from django.contrib.auth import get_user_model
@@ -20,9 +21,11 @@ from .serializers import CategorySerializer, GenreSerializer, \
 from users.serializers import CustomUserSerializer
 from .models import Category, Genre, Title, Reviews
 from .filters import TitleFilter
-from .permissions import IsAdminOrReadOnly
+from .permissions import IsAdminOrReadOnly, IsAdminNotModerator
 
 User = get_user_model()
+admin = 'admin'
+moderator = 'moderator'
 
 
 def get_tokens_for_user(user):
@@ -34,7 +37,10 @@ def get_tokens_for_user(user):
     }
 
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(mixins.CreateModelMixin,
+                      mixins.ListModelMixin,
+                      mixins.DestroyModelMixin,
+                      viewsets.GenericViewSet):
     lookup_field = 'slug'
     serializer_class = CategorySerializer
     queryset = Category.objects.all()
@@ -43,11 +49,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
     search_fields = ['=name']
     http_method_names = ['get', 'post', 'delete']
 
-    def retrieve(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-
-class GenreViewSet(viewsets.ModelViewSet):
+class GenreViewSet(mixins.CreateModelMixin,
+                   mixins.ListModelMixin,
+                   mixins.DestroyModelMixin,
+                   viewsets.GenericViewSet):
     lookup_field = 'slug'
     serializer_class = GenreSerializer
     queryset = Genre.objects.all()
@@ -55,9 +61,6 @@ class GenreViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['=name']
     http_method_names = ['get', 'post', 'delete']
-
-    def retrieve(self, request, *args, **kwargs):
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class TitleViewSet(viewsets.ModelViewSet):
@@ -76,7 +79,7 @@ class UserViewSet(viewsets.ModelViewSet):
     lookup_field = 'username'
     serializer_class = CustomUserSerializer
     queryset = User.objects.all()
-    permission_classes = (IsAdminUser,)
+    permission_classes = (IsAdminNotModerator,)
     filter_backends = [filters.SearchFilter]
     search_fields = ['username']
     http_method_names = ['get', 'post', 'delete', 'patch']
@@ -85,40 +88,45 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.save()
         username = self.kwargs['username']
         user = User.objects.get(username=username)
-        if not self.request.data.get('role') is None:
-            user.is_staff = self.request.data.get('role') in ('admin', 'moderator')
+        role = self.request.data.get('role')
+        if role is not None:
+            user.is_staff = role in (admin, moderator)
+            user.is_admin = role == admin
+            user.is_moderator = role == moderator
         user.save()
 
+    @action(detail=False, permission_classes=[IsAuthenticated, ], url_path='me')
+    def get(self, request):
+        user = request.user
+        serializer = self.serializer_class(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
-class UserSelfView(RetrieveUpdateAPIView):
-    permission_classes = (IsAuthenticated,)
-    serializer_class = CustomUserSerializer
-    http_method_names = ['get', 'patch']
-
-    def get_queryset(self):
-        user = self.request.user
-        return User.objects.filter(id=user.id)
-
-    def get_object(self):
-        queryset = self.get_queryset()
-        user = self.request.user
-        obj = get_object_or_404(queryset, id=user.id)
-        self.check_object_permissions(self.request, obj)
-        return obj
+    @action(detail=False, permission_classes=[IsAuthenticated, ], methods=['patch'], url_path='me')
+    def patch(self, request):
+        user = request.user
+        role = request.data.get('role')
+        if role is not None:
+            if (not request.user.is_admin) and role in (admin, moderator):
+                request.data['role'] = user.role
+        serializer = self.serializer_class(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
 def register(request):
-    email = request.POST.get('email')
+    email = request.data.get('email')
     if email is None:
         return Response(status=status.HTTP_400_BAD_REQUEST)
-    user = User.objects.get(email=email)
+    user = User.objects.filter(email=email)
     if not user:
         user = User.objects.create_user(email=email)
     send_mail(
         'Confirmation code',
-        str(user.password),
-        'from@example.com',
+        str(user.confirmation_code),
+        None,
         [email, ],
         fail_silently=True
     )
@@ -127,15 +135,15 @@ def register(request):
 
 @api_view(['POST'])
 def token(request):
-    email = request.POST['email']
-    confirmation_code = request.POST['confirmation_code']
+    email = request.data.get('email')
+    confirmation_code = request.data.get('confirmation_code')
     if email is None or not User.objects.filter(email=email):
-        return Response({'field_name': 'email'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Email or confirmation code are wrong!'}, status=status.HTTP_400_BAD_REQUEST)
     if confirmation_code is None or not User.objects.filter(password=confirmation_code):
-        return Response({'field_name': 'confirmation_code'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Email or confirmation code are wrong!'}, status=status.HTTP_400_BAD_REQUEST)
     user = User.objects.get(email=email, password=confirmation_code)
     if not user:
-        return Response({'field_name': 'user does not exist'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Email or confirmation code are wrong!'}, status=status.HTTP_400_BAD_REQUEST)
     access_token = get_tokens_for_user(user)['access']
     return Response({'token': access_token}, status=status.HTTP_200_OK)
 

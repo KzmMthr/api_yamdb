@@ -21,4 +21,13 @@ class IsOwnerOrModerOrAdminOrReadOnly(permissions.IsAuthenticatedOrReadOnly):
         if request.method in permissions.SAFE_METHODS:
             return True
         return request.user.is_staff or request.user.is_superuser \
-            or obj.author == request.user or request.user.role == 'moderator'
+               or obj.author == request.user or request.user.role == 'moderator'
+
+
+class IsAdminNotModerator(permissions.BasePermission):
+    """
+    Custom permission to give access only to admin but not moderators.
+    """
+    def has_permission(self, request, view):
+        if request.user.is_staff and request.user.is_admin:
+            return True
