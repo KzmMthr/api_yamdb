@@ -1,6 +1,7 @@
 from django.utils.crypto import get_random_string
 from django.contrib.auth.models import BaseUserManager
 from django.utils.translation import ugettext_lazy as _
+import uuid
 
 
 class CustomUserManager(BaseUserManager):
@@ -14,9 +15,7 @@ class CustomUserManager(BaseUserManager):
                                          '23456789')
         user = self.model(username=username, email=email, **extra_fields)
         user.set_password(password)
-        confirmation_code = get_random_string(10, 'abcdefghjkmnpqrstuvwxyz'
-                                                  'ABCDEFGHJKLMNPQRSTUVWXYZ'
-                                                  '23456789')
+        confirmation_code = uuid.uuid4()
         user.confirmation_code = confirmation_code
         if 'role' not in extra_fields:
             user.role = 'user'

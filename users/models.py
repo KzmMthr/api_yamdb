@@ -8,9 +8,12 @@ from django.utils.translation import gettext_lazy as _
 
 class CustomUser(AbstractUser):
 
-    ROLE_CHOICES = (('admin', 'admin'), ('moderator', 'moderator'), ('user', 'user'))
+    class Roles(models.TextChoices):
+        ADMIN = 'admin', _('admin')
+        MODERATOR = 'moderator', _('moderator')
+        USER = 'user', _('user')
 
-    role = models.CharField(max_length=100, choices=ROLE_CHOICES, default='user')
+    role = models.CharField(max_length=100, choices=Roles.choices, default=Roles.USER)
     bio = models.TextField(blank=True)
     is_admin = models.BooleanField(default=False)
     is_moderator = models.BooleanField(default=False)

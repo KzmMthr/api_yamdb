@@ -1,12 +1,10 @@
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import  IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status, generics, mixins
 from rest_framework.decorators import api_view, action
-from rest_framework.generics import RetrieveUpdateAPIView
 from django.core.mail import send_mail
-from django.utils.crypto import get_random_string
 from . import permissions
 
 from django.contrib.auth import get_user_model
@@ -24,8 +22,8 @@ from .filters import TitleFilter
 from .permissions import IsAdminOrReadOnly, IsAdminNotModerator
 
 User = get_user_model()
-admin = 'admin'
-moderator = 'moderator'
+admin = User.Roles.ADMIN
+moderator = User.Roles.MODERATOR
 
 
 def get_tokens_for_user(user):
@@ -47,7 +45,6 @@ class CategoryViewSet(mixins.CreateModelMixin,
     permission_classes = (IsAdminOrReadOnly,)
     filter_backends = [filters.SearchFilter]
     search_fields = ['=name']
-    http_method_names = ['get', 'post', 'delete']
 
 
 class GenreViewSet(mixins.CreateModelMixin,
@@ -60,7 +57,6 @@ class GenreViewSet(mixins.CreateModelMixin,
     permission_classes = (IsAdminOrReadOnly,)
     filter_backends = [filters.SearchFilter]
     search_fields = ['=name']
-    http_method_names = ['get', 'post', 'delete']
 
 
 class TitleViewSet(viewsets.ModelViewSet):
@@ -106,8 +102,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user = request.user
         role = request.data.get('role')
         if role is not None:
-            if (not request.user.is_admin) and role in (admin, moderator):
-                request.data['role'] = user.role
+            request.data['role'] = user.role
         serializer = self.serializer_class(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -137,13 +132,11 @@ def register(request):
 def token(request):
     email = request.data.get('email')
     confirmation_code = request.data.get('confirmation_code')
-    if email is None or not User.objects.filter(email=email):
+    if email is None or confirmation_code is None:
         return Response({'error': 'Email or confirmation code are wrong!'}, status=status.HTTP_400_BAD_REQUEST)
-    if confirmation_code is None or not User.objects.filter(password=confirmation_code):
-        return Response({'error': 'Email or confirmation code are wrong!'}, status=status.HTTP_400_BAD_REQUEST)
-    user = User.objects.get(email=email, password=confirmation_code)
+    user = User.objects.get(email=email, confirmation_code=confirmation_code)
     if not user:
-        return Response({'error': 'Email or confirmation code are wrong!'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'User does not exist!'}, status=status.HTTP_400_BAD_REQUEST)
     access_token = get_tokens_for_user(user)['access']
     return Response({'token': access_token}, status=status.HTTP_200_OK)
 
