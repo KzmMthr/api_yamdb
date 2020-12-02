@@ -1,6 +1,6 @@
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import  IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status, generics, mixins
 from rest_framework.decorators import api_view, action
@@ -87,25 +87,22 @@ class UserViewSet(viewsets.ModelViewSet):
         role = self.request.data.get('role')
         if role is not None:
             user.is_staff = role in (admin, moderator)
-            user.is_admin = role == admin
-            user.is_moderator = role == moderator
         user.save()
 
-    @action(detail=False, permission_classes=[IsAuthenticated, ], url_path='me')
+    @action(detail=False,
+            permission_classes=[IsAuthenticated, ], url_path='me')
     def get(self, request):
         user = request.user
         serializer = self.serializer_class(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=False, permission_classes=[IsAuthenticated, ], methods=['patch'], url_path='me')
+    @action(detail=False, permission_classes=[IsAuthenticated, ],
+            methods=['patch'], url_path='me')
     def patch(self, request):
         user = request.user
-        role = request.data.get('role')
-        if role is not None:
-            request.data['role'] = user.role
         serializer = self.serializer_class(user, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(role=user.role, raise_exception=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -115,8 +112,9 @@ def register(request):
     email = request.data.get('email')
     if email is None:
         return Response(status=status.HTTP_400_BAD_REQUEST)
-    user = User.objects.filter(email=email)
-    if not user:
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
         user = User.objects.create_user(email=email)
     send_mail(
         'Confirmation code',
@@ -133,10 +131,13 @@ def token(request):
     email = request.data.get('email')
     confirmation_code = request.data.get('confirmation_code')
     if email is None or confirmation_code is None:
-        return Response({'error': 'Email or confirmation code are wrong!'}, status=status.HTTP_400_BAD_REQUEST)
-    user = User.objects.get(email=email, confirmation_code=confirmation_code)
+        return Response({'error': 'Email or confirmation code are wrong!'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    user = get_object_or_404(User, email=email,
+                             confirmation_code=confirmation_code)
     if not user:
-        return Response({'error': 'User does not exist!'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'User does not exist!'},
+                        status=status.HTTP_400_BAD_REQUEST)
     access_token = get_tokens_for_user(user)['access']
     return Response({'token': access_token}, status=status.HTTP_200_OK)
 
