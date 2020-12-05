@@ -1,7 +1,5 @@
 from rest_framework import permissions
 
-from users.models import CustomUser
-
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     """
@@ -11,8 +9,9 @@ class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        is_admin = getattr(request.user, 'is_admin', False)
-        return is_admin or request.user.is_superuser
+        if request.user.is_authenticated:
+            return request.user.is_admin or request.user.is_superuser
+        return False
 
 
 class IsOwnerOrModerOrAdminOrReadOnly(permissions.IsAuthenticatedOrReadOnly):
@@ -23,13 +22,18 @@ class IsOwnerOrModerOrAdminOrReadOnly(permissions.IsAuthenticatedOrReadOnly):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user.is_staff or request.user.is_superuser \
-               or obj.author == request.user or request.user.role == CustomUser.Roles.MODERATOR
+        if request.user.is_authenticated:
+            return obj.author == request.user or request.user.is_moderator \
+                   or request.user.is_admin or request.user.is_superuser
+        return False
 
 
 class IsAdminNotModerator(permissions.BasePermission):
     """
     Custom permission to give access only to admin but not moderators.
     """
+
     def has_permission(self, request, view):
-        return request.user.is_staff and request.user.is_admin
+        if request.user.is_authenticated:
+            return request.user.is_admin
+        return False
