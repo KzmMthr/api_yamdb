@@ -86,7 +86,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user = User.objects.get(username=username)
         role = self.request.data.get('role')
         if role is not None:
-            user.is_staff = role in (admin, moderator)
+            user.is_staff = role == admin
         user.save()
 
     @action(detail=False,
@@ -173,9 +173,8 @@ class ReviewsViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsOwnerOrModerOrAdminOrReadOnly, ]
 
     def get_queryset(self):
-        queryset = Reviews.objects.all()
         title = get_object_or_404(Title, id=self.kwargs['title_id'])
-        return queryset.filter(title=title)
+        return title.review.all()
 
     def perform_create(self, serializers):
         title = get_object_or_404(Title, id=self.kwargs['title_id'])
