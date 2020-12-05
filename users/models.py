@@ -32,4 +32,4 @@ class CustomUser(AbstractUser):
 
     @property
     def is_admin(self):
-        return self.role == self.Roles.ADMIN and self.is_staff and self.is_superuser
+        return self.role == self.Roles.ADMIN
