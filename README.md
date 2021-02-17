@@ -8,6 +8,7 @@
 5. [Доступные методы](#доступные-методы)
 6. [Установка](#установка)
 7. [Технологии](#технологии)
+8. [Участники](#участники)
 
 ## Описание
 
@@ -108,3 +109,17 @@ python manage.py makemigrations && migrate && runserver
 - [Django](https://www.djangoproject.com/)
 - [Django REST framework](https://www.django-rest-framework.org/)
 - [DRF Simple JWT](https://django-rest-framework-simplejwt.readthedocs.io/en/latest/)
+
+## Участники 
+ - [DaniilDDDDD](https://github.com/DaniilDDDDD) - управление пользователями (Auth и Users): 
+   - система регистрации и аутентификации;
+   - права доступа, работа с токеном;
+   - система подтверждения e-mail, поля.
+ - [kzmmthr](https://github.com/KzmMthr/) - категории (Categories), жанры (Genres) и произведения (Titles): 
+   - модели и view; 
+   - эндпойнты.
+ - [kzmmthr&DaniilDDDDD] - отзывы (Review) и комментарии (Comments): 
+   - модели и view;
+   - эндпойнты;
+   - права доступа для запросов;
+   - рейтинги произведений.
