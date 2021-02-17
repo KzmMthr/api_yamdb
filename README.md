@@ -1,9 +1,3 @@
-
-
-<div align="center">
-  <img width=200" height="67" src="https://i.ibb.co/Gp361Rp/YAMDB.jpg">
-</div>
-
 **REST API для сервиса YaMDb** — базы отзывов о фильмах, книгах и музыке. 
 
 ## Index
@@ -12,7 +6,7 @@
 3. [Алгоритм регистрации пользователей](#алгоритм-регистрации-пользователей)
 4. [Пользовательские роли](#пользовательские-роли)
 5. [Доступные методы](#доступные-методы)
-6. [Использование](использование)
+6. [Установка](#установка)
 7. [Технологии](#технологии)
 
 ## Описание
@@ -109,4 +103,8 @@
 ```
 python manage.py makemigrations && migrate && runserver
 ```
-
+## Технологии
+- [Python](https://www.python.org/)
+- [Django](https://www.djangoproject.com/)
+- [Django REST framework](https://www.django-rest-framework.org/)
+- [DRF Simple JWT](https://django-rest-framework-simplejwt.readthedocs.io/en/latest/)
