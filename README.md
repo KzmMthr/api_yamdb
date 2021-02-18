@@ -102,7 +102,7 @@
 
 ## Установка
 ```
-python manage.py makemigrations && migrate && runserver
+python manage.py runserver
 ```
 ## Технологии
 - [Python](https://www.python.org/)
